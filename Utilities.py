@@ -13,8 +13,18 @@ import detchannelmaps
 
 import pandas as pd
 import h5py
+import re
 
-def OpenFile(filename, recordsToStudy):
+def OpenFile(filename : str, recordsToStudy : str):
+    """Open file and get a list of records/slices to process and the channel map.
+
+    Args:
+        filename (str): hdf5file
+        recordsToStudy (str): record mask
+
+    Returns:
+        tuple: data file class, channel map, record list
+    """
     h5_file = HDF5RawDataFile(filename)
     cmap = detchannelmaps.make_map('VDColdboxChannelMap') #? make channel map configurable?
 
@@ -25,12 +35,9 @@ def OpenFile(filename, recordsToStudy):
 
     records = h5_file.get_all_record_ids()
     print("Number of records: %d" % len(records))
+    selectedRecords = ParseRecordMap(recordsToStudy)
+    toStudy = [records[selectedRecords[i]] for i in range(len(selectedRecords))]
 
-    #? allow possiblity to select multiple time slices rather than one or all
-    if(recordsToStudy > -1):
-        toStudy = [records[recordsToStudy]]
-    else:
-        toStudy = records
     return h5_file, cmap, toStudy
 
 
@@ -69,3 +76,25 @@ def SortDataByPlane(data : pd.DataFrame) -> dict:
     vPlane = data[data["plane"] == 1] # induction
     zPlane = data[data["plane"] == 2] # collection
     return {"u": uPlane, "v": vPlane, "z": zPlane}
+
+
+def ParseRecordMap(string : str):
+    """ Break down a record map into a list of records to study
+
+    Args:
+        string (str): record map
+
+    Returns:
+        list: list of record numbers
+    """
+    records = []
+    if not re.search("[a-zA-Z]", string):
+        strs = string.split(",")
+        for s in strs:
+            r = list(map(int, s.split("-")))
+            if len(r) == 1:
+                records.extend(r)
+            else:
+                records.extend(range(r[0], r[-1]+1))
+    print(records)
+    return records

@@ -143,9 +143,9 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test script to plot some TPStream quantities")
     parser.add_argument(dest="file", type=str, help="file to open.")
+    parser.add_argument("-r", "--records", dest="records", type=str, default="0", help="trigger record/s to plot")
     parser.add_argument("-o", "--out-directory", dest="outdir", type=str, default="plot", help="output file directory to store plots")
     parser.add_argument("-d", "--debug", dest="debug", action="store_true", help="print record and TP information")
     parser.add_argument("-p", "--plot", dest="plot", choices=["validation", "gif", "scatter"], help="create plots of TP data")
-    parser.add_argument("-t", "--timeslice", dest="timeslice", type=int, default=-1, help="timeslice to plot")
     args = parser.parse_args()
     main(args)
