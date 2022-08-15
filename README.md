@@ -37,7 +37,7 @@ After some time the directory should be made. cd into the directory and in `sour
 git clone https://github.com/DUNE-DAQ/detdataformats.git
 cd detdataformats; git checkout 635affb; cd ..;
 git clone https://github.com/DUNE-DAQ/detchannelmaps.git
-cd detdataformats; git checkout 4e9ba28; cd ..;
+cd detdataformats; git checkout bbebc27; cd ..;
 git clone https://github.com/DUNE-DAQ/hdf5libs.git
 cd hdf5libs; git checkout 4177005; cd ..;
 ```
