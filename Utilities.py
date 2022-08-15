@@ -15,7 +15,7 @@ import pandas as pd
 import h5py
 import re
 
-def OpenFile(filename : str, recordsToStudy : str):
+def OpenFile(filename : str, recordsToStudy : str, channelMap : str = 'VDColdboxChannelMap'):
     """Open file and get a list of records/slices to process and the channel map.
 
     Args:
@@ -26,7 +26,7 @@ def OpenFile(filename : str, recordsToStudy : str):
         tuple: data file class, channel map, record list
     """
     h5_file = HDF5RawDataFile(filename)
-    cmap = detchannelmaps.make_map('VDColdboxChannelMap') #? make channel map configurable?
+    cmap = detchannelmaps.make_map(channelMap) #? make channel map configurable? yes.
 
     #* get attributes using h5py
     h5py_file = h5py.File(filename, 'r')

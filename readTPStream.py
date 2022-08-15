@@ -61,7 +61,7 @@ def TPDataFrame() -> dict:
 
 
 def main(args):
-    h5_file, cmap, toStudy = Utilities.OpenFile(args.file, args.records)
+    h5_file, cmap, toStudy = Utilities.OpenFile(args.file, args.records, args.channelMap)
 
     TPData = []
     for rid in toStudy:
@@ -85,7 +85,11 @@ def main(args):
             timeSlice["time_peak"].append(tp.time_peak)
             timeSlice["time_over_threshold"].append(tp.time_over_threshold)
             timeSlice["channel"].append(tp.channel)
-            timeSlice["plane"].append(cmap.get_plane_from_offline_channel(tp.channel))
+            try:
+                timeSlice["plane"].append(cmap.get_plane_from_offline_channel(tp.channel))
+            except:
+                print(f"couldn't identify plane from offline channel {tp.channel}")
+                timeSlice["plane"].append(-1)
             timeSlice["adc_integral"].append(tp.adc_integral)
             timeSlice["adc_peak"].append(tp.adc_peak)
             timeSlice["det_id"].append(tp.detid)
@@ -147,5 +151,6 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--out-directory", dest="outdir", type=str, default="plot", help="output file directory to store plots")
     parser.add_argument("-d", "--debug", dest="debug", action="store_true", help="print record and TP information")
     parser.add_argument("-p", "--plot", dest="plot", choices=["validation", "gif", "scatter"], help="create plots of TP data")
+    parser.add_argument("-c", "--channel-map", dest="channelMap", choices=["VDColdboxChannelMap", "ProtoDUNESP1ChannelMap", "PD2HDChannelMap", "HDColdboxChannelMap"], help="channel maps for ProtoDUNE")
     args = parser.parse_args()
     main(args)
