@@ -15,6 +15,9 @@ import detchannelmaps
 import argparse
 import numpy as np
 import h5py
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 def TRDataFrame():
@@ -26,6 +29,8 @@ def TRDataFrame():
     return {
         "adc" : [],
         "channel" : [],
+        "timestamp" : [],
+        "plane": [],
     }
 
 
@@ -50,54 +55,74 @@ def main(args):
 
         wibFrame = detdataformats.wib.WIBFrame(fragment.get_data()) # get frame (bit that has ADCs)
         wibHeader = wibFrame.get_wib_header() # get offline channel number from this
+        wibTimestamp = wibFrame.get_timestamp()
         if args.debug: print(f"crate: {wibHeader.crate_no}, slot: {wibHeader.slot_no}, fibre: {wibHeader.fiber_no}")
 
         channels = [cmap.get_offline_channel_from_crate_slot_fiber_chan(wibHeader.crate_no, wibHeader.slot_no, wibHeader.fiber_no, c) for c in range(256)]
+        plane = [cmap.get_plane_from_offline_channel(c) for c in channels]
         if args.debug: print(channels)
 
-        # for each frame get the raw ADC and store this along with the corresponding channel
+        #for each frame get the raw ADC and store this along with the corresponding channel
         for i in range(n_frames):
             frame = TRDataFrame() # create a blank data frame
             wib = detdataformats.wib.WIBFrame(fragment.get_data(i*wibFrameSize))
+            
             frame["adc"].extend([wib.get_channel(c) for c in range(256)])
             frame["channel"].extend(channels)
+            frame["plane"].extend(plane)
+            frame["timestamp"].extend([wib.get_timestamp() for c in range(256)])
             WIBData.append(frame)
-
+        adcs = [plane]
+        rows = ["plane"]
+        for i in range(n_frames):
+            frame = TRDataFrame()
+            wib = detdataformats.wib.WIBFrame(fragment.get_data(i*wibFrameSize))
+            adcs.append([wib.get_channel(c) for c in range(256)])
+            rows.append(wib.get_timestamp())
+        df = pd.DataFrame(data=adcs, columns=channels, index=rows)
+        mean = np.mean(adcs[1:])
+        print(df)
+        sns.heatmap(df[1:] - df[1:].mean(), cmap="seismic")
+        plt.savefig(f"evd_tr_{args.records}.png", dpi=400)
+        df.to_csv(f"tr_{args.records}.csv")
+        
     #* convert to raw data waveform for LArSoft sumulation studies
     #? merge this with the above block to streamline converting and writing to file?
-    # get all channel ids
-    channels = []
-    for i in range(len(WIBData)):
-        channels.extend(WIBData[i]["channel"])
-    print(f"total number of rows: {len(channels)}")
+    # # get all channel ids
+    # channels = []
+    # for i in range(len(WIBData)):
+    #     channels.extend(WIBData[i]["channel"])
+    # print(f"total number of rows: {len(channels)}")
     
-    # get unique channels i.e. number of rows in output data
-    uniqueChannels = np.unique(channels)
-    print(f"number of unique channel numbers: {len(uniqueChannels)}")
+    # # get unique channels i.e. number of rows in output data
+    # uniqueChannels = np.unique(channels)
+    # print(f"number of unique channel numbers: {len(uniqueChannels)}")
     
-    totalSteps = len(uniqueChannels) + len(channels)
-    counter = 0
-    # add run number, channel and plane id to each row
-    adc = [[run_number, uniqueChannels[i], cmap.get_plane_from_offline_channel(uniqueChannels[i])] for i in range(len(uniqueChannels))]
+    # totalSteps = len(uniqueChannels) + len(channels)
+    # counter = 0
+    # # add run number, channel and plane id to each row
+    # adc = [[run_number, uniqueChannels[i], cmap.get_plane_from_offline_channel(uniqueChannels[i])] for i in range(len(uniqueChannels))]
     
-    # add ADCs from all records along each column
-    for i in range(len(uniqueChannels)):
-        for j in range(len(WIBData)):
-            index = WIBData[j]["channel"].index(uniqueChannels[i])
-            adc[i].append(WIBData[j]["adc"][index])
-            counter += 1
-            print(f"percentage converted: {(100 * counter / totalSteps):.2f}", end='\r')
-    data = np.array(adc)
+    # # add ADCs from all records along each column
+    # for i in range(len(uniqueChannels)):
+    #     for j in range(len(WIBData)):
+    #         index = WIBData[j]["channel"].index(uniqueChannels[i])
+    #         adc[i].append(WIBData[j]["adc"][index])            
+    #         counter += 1
+    #         print(f"percentage converted: {(100 * counter / totalSteps):.2f}", end='\r')
+    # data = np.array(adc)
+
     
     # quick preview
-    if args.debug:
-        with np.printoptions(threshold=5):
-            print(data)
+    # print(data)
+    # if args.debug:
+    #     with np.printoptions(threshold=5):
+    #         print(data)
     
-    np.save(f"{args.outdir}{args.outfile}-{run_number}.npy", data) # save to file
+    # np.save(f"{args.outdir}{args.outfile}-{run_number}.npy", data) # save to file
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test script to plot some TPStream quantities")
+    parser = argparse.ArgumentParser(description="Script to extract ADC values from a TR")
     parser.add_argument(dest="file", type=str, help="file to open.")
     parser.add_argument("-r", "--records", dest="records", type=str, default="0", help="trigger record/s to plot")
     parser.add_argument("-o", "--out-directory", dest="outdir", type=str, default="./", help="output file directory to store plots")

@@ -113,7 +113,7 @@ def main(args):
         anim = animation.FuncAnimation(fig, animate, frames=len(TPData))
         anim.save(f"{args.outdir}/anim.gif")
 
-    if args.plot == "scatter" and args.timeslice > -1:
+    if args.plot == "scatter" and args.records != -1:
         planes = Utilities.SortDataByPlane(TPData[0])
 
         for p in planes:
