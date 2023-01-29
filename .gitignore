@@ -129,5 +129,6 @@ dmypy.json
 .pyre/
 
 plots/
+data/
 test.py
 *.npy
