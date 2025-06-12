@@ -3,22 +3,15 @@ Created on: 04/07/2022 09:58
 
 Author: Shyam Bhuller
 
-Description: Plots data from TP stream files from VD coldbox runs
+Description: Plots data from TP stream files from VD coldbox runs.
+Works for daq runs prior to WIB ethernet readout.
 """
 import Utilities
 
-import detdataformats
-from hdf5libs import HDF5RawDataFile
-import daqdataformats
-import detchannelmaps
+import fddetdataformats
 
-import os
 import argparse
-import h5py
-import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import pandas as pd
 import numpy as np
 
 def TRDataFrame():
@@ -58,9 +51,9 @@ def main(args):
     WIBData = []
 
     if args.frontend == "wib":
-        wibFrame = detdataformats.wib2.WIB2Frame
+        wibFrame = fddetdataformats.WIB2Frame
     elif args.frontend == "proto_wib":
-        wibFrame = detdataformats.wib.WIBFrame
+        wibFrame = fddetdataformats.WIBFrame
     else:
         raise Exception("front end type must be wib or proto_wib")
 

@@ -1,23 +1,8 @@
-"""
-Created on: 01/07/2022 12:33
-
-Author: Shyam Bhuller
-
-Description: Plots data from TP stream files from VD coldbox runs
-"""
 import Utilities
 
 import trgdataformats
-from hdf5libs import HDF5RawDataFile
-import daqdataformats
-import detchannelmaps
 
-import os
 import argparse
-import h5py
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import pandas as pd
 import numpy as np
 from rich import print
@@ -61,26 +46,23 @@ def TPDataFrame() -> dict:
         "plane" : [],
     }
 
-
 def main(args):
     h5_file, cmap, toStudy = Utilities.OpenFile(args.file, args.records, args.channelMap)
 
-    TPData = []
+    fragments = {}
     for rid in toStudy:
-        timeSlice = TPDataFrame() # create a blank data frame
 
         print(h5_file.get_fragment_dataset_paths(rid))
-        fragments = {}
         for fp in h5_file.get_fragment_dataset_paths(rid):
+            timeSlice = TPDataFrame() # create a blank data frame
             fragment = h5_file.get_frag(fp)
             header = fragment.get_header()
-            print(header.element_id.id)
             Utilities.LogFragmentData(args.debug, fp, fragment)
 
             #* get number of TPs in fragment
             tp_size = trgdataformats.TriggerPrimitive.sizeof() # get size of TP packet in bytes
             n_frames = (fragment.get_size()-fragment.get_header().sizeof())//tp_size # number of TP packets is the  fragment data size / tp size
-            print(f"number of TPs in fragment: {n_frames}")
+            # print(f"number of TPs in fragment: {n_frames}")
 
             #* iterate through each TP in the fragment and retrieve various information
             # TODO make code more efficient by plotting/binning data as TPs or fragments are parsed
@@ -99,66 +81,14 @@ def main(args):
                 timeSlice["adc_integral"].append(tp.adc_integral)
                 timeSlice["adc_peak"].append(tp.adc_peak)
                 timeSlice["det_id"].append(tp.detid)
-            TPData.append(pd.DataFrame(timeSlice))
             fragments[header.element_id.id] = pd.DataFrame(timeSlice)
-
-    for k, v in fragments.items():
-        print(f"TP input source ID: {k}")
-        element_id = [cmap.get_element_name_from_offline_channel(c) for c in np.unique(v["channel"])]
-        print(f"Element names: {np.unique(element_id)}")
+        print(f"record id: {rid}")
+        for k, v in fragments.items():
+            print(f"TP input source ID: {k}")
+            element_id = [cmap.get_element_name_from_offline_channel(c) for c in np.unique(v["channel"])]
+            print(f"Element names: {np.unique(element_id)}")
         # for k2, v2 in v.items():
         #     print(f"{k2}, : {np.unique(v2)}")
-
-    exit()
-
-
-    # TODO decide whether plotting a gif of all Timeslices is worth it    
-    def animate(i):
-        im = plt.hist2d(TPData[i]["channel"], TPData[i]["time_peak"], bins=100)
-        plt.xlabel("channel")
-        plt.ylabel("peak time")
-        plt.title(f"Time sice :{i}")
-        return im
-
-    if args.plot:
-        os.makedirs(args.outdir, exist_ok=True)
-    if args.plot == "gif":
-        fig = plt.figure()
-        ax = plt.axes()
-        im = plt.hist2d(TPData[0]["channel"], TPData[0]["time_peak"], bins=100, norm=matplotlib.colors.LogNorm())
-        plt.colorbar()
-        anim = animation.FuncAnimation(fig, animate, frames=len(TPData))
-        anim.save(f"{args.outdir}/anim.gif")
-
-    if args.plot == "scatter" and args.records != -1:
-        planes = Utilities.SortDataByPlane(TPData[0])
-
-        for p in planes:
-            plt.figure()
-            plt.scatter(planes[p]["channel"], planes[p]["time_peak"], c=planes[p]["adc_integral"], s=5)
-            cbar = plt.colorbar()
-            cbar.set_label("ADC integral")
-            plt.xlabel("channel")
-            plt.ylabel("peak time")
-            plt.title(f"Plane : {p}")
-            plt.tight_layout()
-            plt.savefig(f"{args.outdir}/scatter_{p}.png", dpi=400)
-            plt.close()
-
-    if args.plot == "validation":        
-        data = pd.DataFrame(TPDataFrame())
-        for d in TPData:
-            data = pd.concat((data, d))
-
-        for key in data:
-            print(f"Plotting {key}")
-            plt.figure()
-            plt.hist(data[key], 40, histtype="step")
-            plt.xlabel(key)
-            plt.yscale("log")
-            plt.tight_layout()
-            plt.savefig(f"{args.outdir}/{key}.png")
-            plt.close()
 
 
 if __name__ == "__main__":

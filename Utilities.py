@@ -5,57 +5,12 @@ Author: Shyam Bhuller
 
 Description: Utility functions
 """
-import detdataformats.trigger_primitive
 from hdf5libs import HDF5RawDataFile
-import daqdataformats
-import detdataformats
 import detchannelmaps
 
 import pandas as pd
 import h5py
 import re
-
-class WIB:
-    def __init__(self, type, fragment):
-        if type == "wib":
-            wibFrame = detdataformats.wib2.WIB2Frame
-        elif type == "proto_wib":
-            wibFrame = detdataformats.wib.WIBFrame
-        else:
-            raise Exception("front end type must be wib or proto_wib")
-        self.frameSize = wibFrame.sizeof()
-        self.frame = WIBFrame(type)
-        self.header = WIBHeader(type)
-
-class WIBFrame:
-    def __init__(self, type):
-        self.type = type
-        self.timestamp = [wib.get_timestamp() for c in range(256)]
-
-        if type == "proto_wib":
-            self.adc = [wib.get_channel(c) for c in range(256)]
-        if type == "wib":
-            self.adc = [wib.get_adc(c) for c in range(256)]
-
-        self.channel = channels
-        self.plane = planes
-
-class WIBHeader:
-    def __init__(self, frame : WIBFrame, type : str):
-        self.type = type
-        if self.type  == "proto_wib":
-            header = frame.get_wib_header()
-            self.crate = header.crate_no
-            self.slot = header.slot_no
-            self.fibre = header.fiber_no
-        elif self.type == "wib":
-            header = frame.get_header()
-            self.crate = header.crate
-            self.slot = header.slot
-            self.fibre = header.link
-        else:
-            raise Exception("type must be proto_wib or wib, and must match the wib frame type")
-
 
 def OpenFile(filename : str, recordsToStudy : str, channelMap : str = 'VDColdboxChannelMap'):
     """Open file and get a list of records/slices to process and the channel map.
@@ -68,7 +23,7 @@ def OpenFile(filename : str, recordsToStudy : str, channelMap : str = 'VDColdbox
         tuple: data file class, channel map, record list
     """
     h5_file = HDF5RawDataFile(filename)
-    cmap = detchannelmaps.make_map(channelMap) #? make channel map configurable? yes.
+    cmap = detchannelmaps.make_tpc_map(channelMap)
 
     #* get attributes using h5py
     h5py_file = h5py.File(filename, 'r')

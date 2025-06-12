@@ -6,11 +6,8 @@ Author: Shyam Bhuller
 Description: Reads a Trigger record and writes ADC and channels to file. Used in offline analysis of TPs
 """
 import Utilities
-
-import detdataformats.trigger_primitive
-from hdf5libs import HDF5RawDataFile
-import daqdataformats
-import detchannelmaps
+import fddetdataformats
+import rawdatautils
 
 import argparse
 import numpy as np
@@ -35,13 +32,13 @@ def TRDataFrame():
 
 
 def main(args):
-    h5_file, cmap, toStudy = Utilities.OpenFile(args.file, args.records)
+    h5_file, cmap, toStudy = Utilities.OpenFile(args.file, args.records, args.channel_map)
     
     #* collect run number
     with h5py.File(args.file, 'r') as h5py_file:
         run_number = h5py_file.attrs["run_number"]
 
-    wibFrameSize = detdataformats.wib.WIBFrame.sizeof()
+    wibFrameSize = fddetdataformats.WIBEthFrame.sizeof()
     print(f"wib frame size: {wibFrameSize}")
 
     #* crawl through records and store data
@@ -53,41 +50,25 @@ def main(args):
         n_frames = (fragment.get_size()-fragment.get_header().sizeof())//wibFrameSize # number of WIb frames is the  fragment data size / tp size
         if args.debug: print(f"number of WIB frames in fragment: {n_frames}")
 
-        wibFrame = detdataformats.wib.WIBFrame(fragment.get_data()) # get frame (bit that has ADCs)
-        wibHeader = wibFrame.get_wib_header() # get offline channel number from this
+        wibFrame = fddetdataformats.WIBEthFrame(fragment.get_data()) # get frame (bit that has ADCs)
+        wibHeader = wibFrame.get_daqheader() # get offline channel number from this
         wibTimestamp = wibFrame.get_timestamp()
         if args.debug: print(f"crate: {wibHeader.crate_no}, slot: {wibHeader.slot_no}, fibre: {wibHeader.fiber_no}")
 
-        channels = [cmap.get_offline_channel_from_crate_slot_fiber_chan(wibHeader.crate_no, wibHeader.slot_no, wibHeader.fiber_no, c) for c in range(256)]
+        channels = [cmap.get_offline_channel_from_det_crate_slot_stream_chan(wibHeader.det_id, wibHeader.crate_id, wibHeader.slot_id, wibHeader.stream_id, c) for c in range(64)]
         plane = [cmap.get_plane_from_offline_channel(c) for c in channels]
+        adc = rawdatautils.unpack.wibeth.np_array_adc(fragment)
+        timestamps = rawdatautils.unpack.wibeth.np_array_timestamp(fragment)
         if args.debug: print(channels)
 
-        #for each frame get the raw ADC and store this along with the corresponding channel
-        for i in range(n_frames):
-            frame = TRDataFrame() # create a blank data frame
-            wib = detdataformats.wib.WIBFrame(fragment.get_data(i*wibFrameSize))
-            
-            frame["adc"].extend([wib.get_channel(c) for c in range(256)])
-            frame["channel"].extend(channels)
-            frame["plane"].extend(plane)
-            frame["timestamp"].extend([wib.get_timestamp() for c in range(256)])
-            WIBData.append(frame)
-        adcs = [plane]
-        rows = ["plane"]
-        for i in range(n_frames):
-            frame = TRDataFrame()
-            wib = detdataformats.wib.WIBFrame(fragment.get_data(i*wibFrameSize))
-            adcs.append([wib.get_channel(c) for c in range(256)])
-            rows.append(wib.get_timestamp())
-        df = pd.DataFrame(data=adcs, columns=channels, index=rows)
-        mean = np.mean(adcs[1:])
-        print(df)
+        df = pd.DataFrame(data=np.vstack([plane, adc]), columns=channels, index=["plane", *timestamps])
+        print(df.head(n=5))
+        plt.figure()
         sns.heatmap(df[1:] - df[1:].mean(), cmap="seismic")
-        plt.savefig(f"evd_tr_{args.records}.png", dpi=400)
-        df.to_csv(f"tr_{args.records}.csv")
+        plt.savefig(f"evd_tr_{rid[0]}.png", dpi=400)
+        df.to_csv(f"tr_{rid[0]}.csv")
         
     #* convert to raw data waveform for LArSoft sumulation studies
-    #? merge this with the above block to streamline converting and writing to file?
     # # get all channel ids
     # channels = []
     # for i in range(len(WIBData)):
@@ -128,5 +109,6 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--out-directory", dest="outdir", type=str, default="./", help="output file directory to store plots")
     parser.add_argument("-d", "--debug", dest="debug", action="store_true", help="print record and TP information")
     parser.add_argument("-f", "--out-file", dest="outfile", type=str, default="test-waveform", help="output file name")
+    parser.add_argument("-c", "--channel-map", dest="channel_map", choices=["VDColdboxChannelMap", "ProtoDUNESP1ChannelMap", "PD2HDChannelMap", "HDColdboxChannelMap", "PD2VDTPCChannelMap"], help="channel maps for ProtoDUNE")
     args = parser.parse_args()
     main(args)
